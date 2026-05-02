@@ -3,95 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time PHP Chat</title>
+    <title>PHP Chat App</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #chat-box::-webkit-scrollbar { width: 4px; }
+        #chat-box::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+    </style>
 </head>
-<body class="bg-gray-100 h-screen flex items-center justify-center">
-
+<body class="bg-gray-100 h-screen flex flex-col items-center justify-center p-4">
     <div class="w-full max-w-md bg-white shadow-lg rounded-lg overflow-hidden flex flex-col" style="height: 80vh;">
-        <!-- Header -->
-        <div class="bg-blue-600 p-4 text-white font-bold text-center flex justify-between items-center">
+        <div class="bg-blue-600 p-4 text-white font-bold flex justify-between items-center">
             <span>Chat Room</span>
-            <div id="status-dot" class="w-3 h-3 bg-gray-400 rounded-full" title="Connecting..."></div>
+            <div id="status-dot" class="w-3 h-3 bg-gray-400 rounded-full"></div>
         </div>
-
-        <!-- Messages Area -->
         <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50">
             <div class="text-center text-gray-400 text-sm mt-10">Connecting to server...</div>
         </div>
-
-        <!-- Input Area -->
         <form id="chat-form" class="p-4 border-t flex gap-2">
-            <input 
-                type="text" 
-                id="msg-input" 
-                placeholder="Type your message..." 
-                class="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-            >
-            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition">
-                Send
-            </button>
+            <input type="text" id="msg-input" placeholder="Type your message..." class="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" required>
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition text-sm font-semibold">Send</button>
         </form>
     </div>
-
     <script>
         const chatBox = document.getElementById('chat-box');
         const chatForm = document.getElementById('chat-form');
         const msgInput = document.getElementById('msg-input');
         const statusDot = document.getElementById('status-dot');
 
-        // Logic to determine the API URL correctly
-        const getApiUrl = () => {
-            const loc = window.location;
-            // If running in a preview/blob environment, relative paths won't work.
-            // We default to 'index.php' relative to current path for local server use.
-            const path = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
-            return path + 'index.php';
-        };
-
-        const API_URL = getApiUrl();
+        const API_URL = 'index.php';
 
         async function fetchMessages() {
             try {
                 const response = await fetch(`${API_URL}?action=fetch`);
-                
-                if (!response.ok) throw new Error('Server returned error');
-                
+                if (!response.ok) throw new Error();
                 const data = await response.json();
                 renderMessages(data);
-                statusDot.className = "w-3 h-3 bg-green-500 rounded-full"; // Online
-            } catch (error) {
-                console.warn("Fetch failed:", error.message);
-                statusDot.className = "w-3 h-3 bg-red-500 rounded-full"; // Offline
-                
-                // If it's the first load, show error info
-                if (chatBox.innerText.includes('Connecting')) {
-                    chatBox.innerHTML = `
-                        <div class="text-center text-gray-500 text-xs mt-10 p-4 border border-dashed rounded-lg">
-                            <p class="font-bold text-red-500 mb-2">Connection Error</p>
-                            <p>To run this chat, you must host these files on a PHP server (like XAMPP or WAMP).</p>
-                            <code class="block bg-gray-200 p-1 mt-2 text-[10px] break-all">${API_URL}</code>
-                        </div>
-                    `;
-                }
+                statusDot.className = "w-3 h-3 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]";
+            } catch (e) {
+                statusDot.className = "w-3 h-3 bg-red-500 rounded-full";
             }
         }
 
         function renderMessages(data) {
             if (!Array.isArray(data)) return;
-            
             chatBox.innerHTML = '';
             data.forEach(msg => {
                 const div = document.createElement('div');
                 div.className = "bg-white p-3 rounded-lg shadow-sm border border-gray-100 animate-fade-in";
-                div.innerHTML = `
-                    <div class="flex justify-between items-start mb-1">
-                        <strong class="text-blue-600 text-xs">${msg.username || 'User'}</strong>
-                        <span class="text-[9px] text-gray-400">${msg.created_at || ''}</span>
-                    </div>
-                    <p class="text-gray-800 text-sm">${msg.message}</p>
-                `;
+                div.innerHTML = `<div class="flex justify-between mb-1"><strong class="text-blue-600 text-[11px]">${msg.username}</strong><span class="text-[9px] text-gray-400">${msg.created_at}</span></div><p class="text-gray-800 text-sm">${msg.message}</p>`;
                 chatBox.appendChild(div);
             });
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -101,63 +62,17 @@
             e.preventDefault();
             const message = msgInput.value.trim();
             if (!message) return;
-
             try {
                 const formData = new FormData();
                 formData.append('message', message);
-
-                const response = await fetch(`${API_URL}?action=send`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) throw new Error('Post failed');
-
+                await fetch(`${API_URL}?action=send`, { method: 'POST', body: formData });
                 msgInput.value = '';
-                fetchMessages(); 
-            } catch (error) {
-                console.error("Error sending:", error);
-                // Preview mode: show locally even if server fails
-                const previewMsg = {
-                    username: 'You (Preview)',
-                    message: message,
-                    created_at: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                };
-                
-                // Clear the error box if it's there
-                if (chatBox.innerText.includes('Connection Error')) chatBox.innerHTML = '';
-                
-                appendLocalMessage(previewMsg);
-                msgInput.value = '';
-            }
+                fetchMessages();
+            } catch (e) { console.error(e); }
         });
 
-        function appendLocalMessage(msg) {
-            const div = document.createElement('div');
-            div.className = "bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-100 ml-8";
-            div.innerHTML = `
-                <div class="flex justify-between items-start mb-1">
-                    <strong class="text-blue-700 text-xs">${msg.username}</strong>
-                    <span class="text-[9px] text-gray-400">${msg.created_at}</span>
-                </div>
-                <p class="text-gray-800 text-sm">${msg.message}</p>
-            `;
-            chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        // Poll every 3 seconds
         setInterval(fetchMessages, 3000);
-        // Initial load
         fetchMessages();
     </script>
-
-    <style>
-        @keyframes fade-in {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fade-in 0.3s ease-out; }
-    </style>
 </body>
 </html>
